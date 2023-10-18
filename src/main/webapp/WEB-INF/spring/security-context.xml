@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:security="http://www.springframework.org/schema/security"
+xsi:schemaLocation="http://www.springframework.org/schema/security
+http://www.springframework.org/schema/security/spring-security.xsd
+http://www.springframework.org/schema/beans
+http://www.springframework.org/schema/beans/spring-beans.xsd">
+	
+	<!-- CustomAccessDeniedHandler 빈아이디 객체명 customAccessDenied 생성  -->
+	<bean id="customAccessDenied" class="net.daum.security.CustomAccessDeniedHandler" />
+	
+	<!-- 로그인 성공시 호출 -->
+	<bean id="customLoginSuccess" class="net.daum.security.CustomLoginSuccessHandler" />
+	
+	<!--  CustomNoOpPasswordEncoder 클래스의 빈아이디 customPasswordEncoder 생성
+	<bean id="customPasswordEncoder" 
+	class="net.daum.security.CustomNoOpPasswordEncoder" /> -->
+	
+	<!-- 
+		1. 스프링 시큐리티에서 제공하는 BCryptPasswordEncoder 클래스를 이용해서 비번을 암호화 처리한다
+		2. bcrypt는 태생 자체가 패스워드를 저장하는 용도로 설계된 것으로 특정 문자열을 암호화 한다.
+		체크하는 쪽에서는 암호화 된 패스워드가 가능한 패스워드 인지만 확인하고 다시 원래 원문으로 되돌리지는 못한다.
+		3. 
+	 -->
+	<bean  id="bcryptPasswordEndcoder"
+	class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder" />
+	
+	<!-- CustomUserDetailsService 빈아이디 customUserDetailsService 등록 -> 스프링 시큐리티 자동 로그인과 연관된 부분 -->
+	<bean id="customUserDetailsService"
+	class="net.daum.security.CustomUserDetailsService" />
+	
+	<!-- 스프링 시큐리티가 http에서 알 수 있게 하는 시작 시점 설정 -->
+	<security:http>
+		<!-- url매핑주소에 접근할 때 인터셉터(가로채기)를 이용해서 접근을 제한하는 설정은 security:intercept-url을 사용한다
+		pattern 속성값으로는 컨트롤러에 지정한 매핑주소가 들어간다. access 속성값에는 권한 범위를 설정한다
+		permitAll은 모든 사용자를 허용한다 -->
+		<security:intercept-url pattern="/sample/all" access="permitAll"/>
+		
+		<!-- ROLE_MEMBER는 로그인한 사용자만 접근할 수 있다 -->
+		<security:intercept-url pattern="/sample/member" access="hasRole('ROLE_MEMBER')" />
+		
+		<!-- 관리자 권한을 가진 사용자만 접근할 수 있다 -->
+		<security:intercept-url pattern="/sample/admin" access="hasRole('ROLE_ADMIN')"/>
+		
+		<!-- 403 접근금지 에러가 발생했을 떄 accesssError 매핑주소가 실행되게 한다 
+		<security:access-denied-handler error-page="/accessError" /> -->
+		
+		<!-- 403 접근금지 에러가 발생했을 때 빈아이디 customAccessDenied를 호출  -->
+		<security:access-denied-handler ref="customAccessDenied" />
+		
+		<!-- 시큐리티 폼로그인 설정 -> 스프링 시큐리티 내장 폼 로그인 실행 
+		<security:form-login />-->
+		
+		<!-- 커스텀 로그인 페이지로 이동하는 매핑주소 /customLogin 등록,
+		로그인 성공시 customLoginSuccess 빈아이디를 호출 -->
+		<security:form-login login-page="/customLogin"
+		authentication-success-handler-ref="customLoginSuccess" />
+		
+		<!-- remember-me는 시큐리티 자동로그인, data-source-ref="dataSource"는 
+		root-context.xml빈 아이디를 호출해서 오라클 연결, token-validity-seconds 초단위 쿠키 유효시간 -->
+		<security:remember-me data-source-ref="dataSource"
+		token-validity-seconds="604800" />
+		
+		<!-- 로그아웃시 customLogout 매핑주소가 실행, invalidate-session="true"는 로그아웃시
+		세션 무효화를 해서 로그아웃 처리함. delete-cookies="remember-me" 자동로그인에서 사용하는 쿠키이름 삭제 -->
+		<security:logout logout-url="/customLogout" invalidate-session="true"
+		delete-cookies="remember-me" />
+	</security:http>
+	
+	<security:authentication-manager>
+		<!-- 시큐리티 인증 제공자에서 customUserDetailsService 빈아이디를 호출 -->
+		<security:authentication-provider user-service-ref="customUserDetailsService">
+			
+			<!-- bcryptPasswordEncoder 빈 아이디 객체를 호출하면서 비번을 암호화 시킨다 -->
+			<security:password-encoder ref="bcryptPasswordEndcoder"/>
+			
+		</security:authentication-provider>
+	</security:authentication-manager>
+
+</beans>
